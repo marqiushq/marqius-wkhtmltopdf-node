@@ -63,12 +63,18 @@ for lib in $libraries; do
         check invoice.pdf %PDF-
         ;;
     wkhtmltopdf-quoted)
-        # the README's line for a project whose path has a space in it
+        # A project whose path has a space in it. On Linux and macOS the package runs the program
+        # through a shell, so the README's quoted line is used; on Windows it runs the program
+        # without one, so the README's plain lines must work as they are.
         saved=$work
         work="$work/with space"
         project wkhtmltopdf
         work=$saved
-        { echo 'const wkhtmltopdf = require("wkhtmltopdf");'; readme "example: wkhtmltopdf quoted"; readme "example: wkhtmltopdf" | tail -n 1; } >render.js
+        if [ "$platform" = win32-x64 ]; then
+            { echo 'const wkhtmltopdf = require("wkhtmltopdf");'; readme "example: wkhtmltopdf"; } >render.js
+        else
+            { echo 'const wkhtmltopdf = require("wkhtmltopdf");'; readme "example: wkhtmltopdf quoted"; readme "example: wkhtmltopdf" | tail -n 1; } >render.js
+        fi
         cat render.js
         node render.js
         check invoice.pdf %PDF-
