@@ -1,0 +1,53 @@
+{
+  "name": "marqius-wkhtmltopdf",
+  "version": "0.12.10",
+  "description": "marqius-wkhtmltopdf, the maintained drop-in replacement for wkhtmltopdf, for Node's wkhtmltopdf package (commercial, 30-day trial)",
+  "keywords": [
+    "wkhtmltopdf",
+    "wkhtmltoimage",
+    "pdf",
+    "html-to-pdf",
+    "html2pdf"
+  ],
+  "homepage": "https://marqius.com/wkhtmltopdf/",
+  "bugs": {
+    "url": "https://github.com/marqiushq/marqius-wkhtmltopdf-node/issues",
+    "email": "hello@marqius.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marqiushq/marqius-wkhtmltopdf-node.git",
+    "directory": "marqius-wkhtmltopdf"
+  },
+  "license": "SEE LICENSE IN LICENSE.md",
+  "author": "Simple AI LLC <hello@marqius.com> (https://marqius.com)",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "marqius-wkhtmltopdf": "bin/marqius-wkhtmltopdf.js"
+  },
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "bin/marqius-wkhtmltopdf.js",
+    "LICENSE.md"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
+  "optionalDependencies": {
+    "marqius-wkhtmltopdf-darwin-arm64": "0.12.10",
+    "marqius-wkhtmltopdf-linux-arm64": "0.12.10",
+    "marqius-wkhtmltopdf-linux-x64": "0.12.10",
+    "marqius-wkhtmltopdf-win32-x64": "0.12.10"
+  }
+}
