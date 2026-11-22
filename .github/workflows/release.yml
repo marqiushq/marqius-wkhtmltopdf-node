@@ -1,7 +1,8 @@
 # Keeps the npm packages on the latest release of marqius-wkhtmltopdf, and proves them first:
 #
-#   every hour     when marqius.com's latest release is newer than marqius-wkhtmltopdf/package.json,
-#                  each build is checked against its published SHA-256 and the packages are made:
+#   every hour     when marqius-wkhtmltopdf's latest GitHub release is newer than the package, each
+#                  build is checked against its published SHA-256 and GitHub build provenance, and the
+#                  packages are made:
 #                  marqius-wkhtmltopdf and one per platform. npm installs them, as the README prints
 #                  it, from a test registry on the runner, and the wkhtmltopdf and wkhtmltoimage
 #                  packages make files with them on Linux (x64 and arm64), macOS (Apple silicon) and
@@ -11,6 +12,7 @@
 #                  own release if npm lacks it, which is how the first release goes out
 #   on a change    to main, or in a pull request: the packages as they stand, on the same four
 #   while private  the hourly check does not run
+#   publishing     only from a public repository whose variable PUBLISHING is "on"
 name: Release
 
 on:
@@ -39,7 +41,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: follow
-        name: Follow marqius.com's latest release
+        name: Follow marqius-wkhtmltopdf's latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           have=$(python3 -c 'import json; print(json.load(open("marqius-wkhtmltopdf/package.json"))["version"])')
           publish=false target=$have
@@ -51,10 +55,11 @@ jobs:
               publish=true # run by hand, and npm lacks the package's own release: the first one
             fi
           fi
-          echo "package $have, marqius.com ${latest:-not asked}: publish=$publish version=$target"
+          echo "package $have, latest release ${latest:-not asked}: publish=$publish version=$target"
           printf 'publish=%s\nversion=%s\n' "$publish" "$target" >>"$GITHUB_OUTPUT"
       - name: Check the release's builds and make the packages
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.follow.outputs.version }}
         run: |
           python3 .github/release.py fetch "$VERSION" "$RUNNER_TEMP/builds"
@@ -95,7 +100,9 @@ jobs:
 
   publish:
     needs: [follow, test]
-    if: needs.follow.outputs.publish == 'true' && github.ref == 'refs/heads/main'
+    if: >-
+      needs.follow.outputs.publish == 'true' && github.ref == 'refs/heads/main' &&
+      vars.PUBLISHING == 'on' && !github.event.repository.private
     runs-on: ubuntu-24.04
     environment: npm
     permissions:
