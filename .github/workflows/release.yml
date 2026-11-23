@@ -170,8 +170,7 @@ jobs:
       - name: Publish the platform packages, then marqius-wkhtmltopdf
         env:
           VERSION: ${{ needs.follow.outputs.version }}
-          # without an NPM_TOKEN secret, npm's trusted publishing for this workflow is used
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # no token: npm's trusted publishing takes this job's GitHub sign-in (id-token, environment npm)
         run: |
           npm install -g npm@11
           for name in marqius-wkhtmltopdf-linux-x64 marqius-wkhtmltopdf-linux-arm64 marqius-wkhtmltopdf-darwin-arm64 marqius-wkhtmltopdf-win32-x64 marqius-wkhtmltopdf; do
