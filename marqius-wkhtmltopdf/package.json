@@ -1,13 +1,26 @@
 {
   "name": "marqius-wkhtmltopdf",
   "version": "0.12.13",
-  "description": "marqius-wkhtmltopdf, the maintained drop-in replacement for wkhtmltopdf, for Node's wkhtmltopdf package (commercial, 30-day trial)",
+  "description": "The maintained drop-in replacement for wkhtmltopdf, for Node's wkhtmltopdf and wkhtmltoimage packages. Prints Arabic, Hebrew, Hindi, Thai, Chinese, Japanese and Korean. Commercial, 30-day trial, free Community licence available.",
   "keywords": [
     "wkhtmltopdf",
     "wkhtmltoimage",
     "pdf",
     "html-to-pdf",
-    "html2pdf"
+    "html2pdf",
+    "pdf-generation",
+    "html-to-image",
+    "invoice",
+    "rtl",
+    "arabic",
+    "hebrew",
+    "hindi",
+    "thai",
+    "chinese",
+    "japanese",
+    "korean",
+    "cjk",
+    "unicode"
   ],
   "homepage": "https://marqius.com/wkhtmltopdf/",
   "bugs": {
