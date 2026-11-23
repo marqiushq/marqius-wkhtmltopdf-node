@@ -13,7 +13,10 @@
 #                  own release if npm lacks it, which is how the first release goes out
 #   on a change    to main, or in a pull request: the packages as they stand, on the same four
 #   while private  the hourly check does not run
-#   publishing     only from a public repository whose variable PUBLISHING is "on"
+#   publishing     only from a public repository whose variable PUBLISHING is "on", through npm's
+#                  trusted publishing: npm takes this workflow's GitHub sign-in, in environment npm
+#   sign-in check  by hand with check_npm_sign_in: npm is asked to accept that sign-in for each of the
+#                  five packages; nothing is built, tested or published
 name: Release
 
 on:
@@ -25,6 +28,10 @@ on:
         description: "Test on GitHub's macOS too (off only while GitHub has no Mac, and the macOS checks were run on a Mac elsewhere)"
         type: boolean
         default: true
+      check_npm_sign_in:
+        description: "Only check that npm accepts this workflow's GitHub sign-in for all five packages (nothing is built or published)"
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -39,7 +46,7 @@ concurrency:
 jobs:
   follow:
     # while the repository is private, the hourly check does not run (it would spend private minutes)
-    if: github.event_name != 'schedule' || !github.event.repository.private
+    if: (github.event_name != 'schedule' || !github.event.repository.private) && !inputs.check_npm_sign_in
     runs-on: ubuntu-24.04
     outputs:
       publish: ${{ steps.follow.outputs.publish }}
@@ -249,3 +256,22 @@ jobs:
             sleep 300
             tests/examples.sh "$tmp/live-again"
           }
+
+  npm-sign-in:
+    # by hand: npm's trusted publishing must accept this workflow's GitHub sign-in for every package.
+    # Each short-lived npm token it gives back is dropped unseen.
+    if: github.event_name == 'workflow_dispatch' && inputs.check_npm_sign_in && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: npm
+    permissions:
+      id-token: write
+    steps:
+      - name: npm accepts GitHub's sign-in for each package
+        run: |
+          id=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm:registry.npmjs.org" | jq -r .value)
+          failed=
+          for name in marqius-wkhtmltopdf marqius-wkhtmltopdf-linux-x64 marqius-wkhtmltopdf-linux-arm64 marqius-wkhtmltopdf-darwin-arm64 marqius-wkhtmltopdf-win32-x64; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $id" "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/$name")
+            case $code in 200 | 201) echo "$name: accepted ($code)" ;; *) echo "$name: refused ($code)"; failed=yes ;; esac
+          done
+          [ -z "$failed" ]
