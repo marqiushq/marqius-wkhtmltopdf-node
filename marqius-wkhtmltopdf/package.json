@@ -1,6 +1,6 @@
 {
   "name": "marqius-wkhtmltopdf",
-  "version": "0.12.10",
+  "version": "0.12.13",
   "description": "marqius-wkhtmltopdf, the maintained drop-in replacement for wkhtmltopdf, for Node's wkhtmltopdf package (commercial, 30-day trial)",
   "keywords": [
     "wkhtmltopdf",
@@ -45,9 +45,9 @@
     "node": ">=14"
   },
   "optionalDependencies": {
-    "marqius-wkhtmltopdf-darwin-arm64": "0.12.10",
-    "marqius-wkhtmltopdf-linux-arm64": "0.12.10",
-    "marqius-wkhtmltopdf-linux-x64": "0.12.10",
-    "marqius-wkhtmltopdf-win32-x64": "0.12.10"
+    "marqius-wkhtmltopdf-darwin-arm64": "0.12.13",
+    "marqius-wkhtmltopdf-linux-arm64": "0.12.13",
+    "marqius-wkhtmltopdf-linux-x64": "0.12.13",
+    "marqius-wkhtmltopdf-win32-x64": "0.12.13"
   }
 }
