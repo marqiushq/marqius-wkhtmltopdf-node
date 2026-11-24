@@ -1,6 +1,6 @@
 {
   "name": "marqius-wkhtmltopdf",
-  "version": "0.12.15",
+  "version": "0.12.16",
   "description": "The maintained drop-in replacement for wkhtmltopdf, for Node's wkhtmltopdf and wkhtmltoimage packages. Prints Arabic, Hebrew, Hindi, Thai, Chinese, Japanese and Korean. Commercial, 30-day trial, free Community licence available.",
   "keywords": [
     "wkhtmltopdf",
@@ -58,9 +58,9 @@
     "node": ">=14"
   },
   "optionalDependencies": {
-    "marqius-wkhtmltopdf-darwin-arm64": "0.12.15",
-    "marqius-wkhtmltopdf-linux-arm64": "0.12.15",
-    "marqius-wkhtmltopdf-linux-x64": "0.12.15",
-    "marqius-wkhtmltopdf-win32-x64": "0.12.15"
+    "marqius-wkhtmltopdf-darwin-arm64": "0.12.16",
+    "marqius-wkhtmltopdf-linux-arm64": "0.12.16",
+    "marqius-wkhtmltopdf-linux-x64": "0.12.16",
+    "marqius-wkhtmltopdf-win32-x64": "0.12.16"
   }
 }
