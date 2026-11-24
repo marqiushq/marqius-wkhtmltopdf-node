@@ -32,6 +32,10 @@ on:
         description: "Only check that npm accepts this workflow's GitHub sign-in for all five packages (nothing is built or published)"
         type: boolean
         default: false
+      dry_run:
+        description: "Rehearsal: build and test the latest marqius-wkhtmltopdf release as if it were new, even if npm has it; publish nothing"
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -40,7 +44,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  # a rehearsal neither waits behind a run that publishes nor takes its place
+  group: release-${{ github.ref }}${{ inputs.dry_run && '-dry-run' || '' }}
   cancel-in-progress: false
 
 jobs:
@@ -57,10 +62,15 @@ jobs:
         name: Follow marqius-wkhtmltopdf's latest release
         env:
           GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           have=$(python3 -c 'import json; print(json.load(open("marqius-wkhtmltopdf/package.json"))["version"])')
           publish=false target=$have
-          if [ "$GITHUB_EVENT_NAME" = schedule ] || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+          if [ "$DRY_RUN" = true ]; then
+            # a rehearsal: the latest release, built and tested as if it were new; the publish job is skipped
+            latest=$(python3 .github/release.py latest)
+            publish=true target=$latest
+          elif [ "$GITHUB_EVENT_NAME" = schedule ] || [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
             latest=$(python3 .github/release.py latest)
             if python3 .github/release.py newer "$latest" "$have"; then
               publish=true target=$latest
@@ -111,6 +121,22 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # GitHub's Intel Ubuntu machines download from a slow mirror (the README's 75 MB of fonts took
+      # 7 to 13 minutes there): the packages earlier runs downloaded go where apt looks first. apt
+      # still checks each one against its index, and downloads any that changed.
+      - name: Packages earlier runs downloaded, where apt looks first
+        if: runner.os == 'Linux'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archives
+          key: apt-archives-${{ runner.arch }}-${{ github.run_id }}
+          restore-keys: apt-archives-${{ runner.arch }}-
+      - if: runner.os == 'Linux'
+        run: |
+          mkdir -p ~/apt-archives
+          n=$(find ~/apt-archives -maxdepth 1 -name '*.deb' | wc -l)
+          if [ "$n" -gt 0 ]; then sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/; fi
+          echo "$n packages from earlier runs"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages
@@ -144,12 +170,29 @@ jobs:
       - name: The package's types, as TypeScript reads them
         if: matrix.runner == 'ubuntu-24.04'
         run: MARQIUS_NPM_TARBALLS="$GITHUB_WORKSPACE/dist" tests/examples.sh "$RUNNER_TEMP/t" types
+      - name: Keep the packages this run downloaded, for the next run
+        id: apt-keep
+        if: always() && runner.os == 'Linux'
+        run: |
+          new=0
+          for f in /var/cache/apt/archives/*.deb; do
+            [ -e "$f" ] || continue
+            [ -e ~/apt-archives/"${f##*/}" ] && continue
+            cp "$f" ~/apt-archives/ && new=$((new + 1))
+          done
+          echo "$new packages new to the cache"
+          echo "new=$new" >>"$GITHUB_OUTPUT"
+      - if: always() && runner.os == 'Linux' && steps.apt-keep.outputs.new != '' && steps.apt-keep.outputs.new != '0'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archives
+          key: apt-archives-${{ runner.arch }}-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}
 
   publish:
     needs: [follow, test]
     if: >-
       needs.follow.outputs.publish == 'true' && github.ref == 'refs/heads/main' &&
-      vars.PUBLISHING == 'on' && !github.event.repository.private
+      vars.PUBLISHING == 'on' && !github.event.repository.private && !inputs.dry_run
     runs-on: ubuntu-24.04
     environment: npm
     permissions:
@@ -219,6 +262,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.follow.outputs.version }}
+      # GitHub's Intel Ubuntu machines download from a slow mirror (the README's 75 MB of fonts took
+      # 7 to 13 minutes there): the packages earlier runs downloaded go where apt looks first. apt
+      # still checks each one against its index, and downloads any that changed.
+      - name: Packages earlier runs downloaded, where apt looks first
+        if: runner.os == 'Linux'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archives
+          key: apt-archives-${{ runner.arch }}-${{ github.run_id }}
+          restore-keys: apt-archives-${{ runner.arch }}-
+      - if: runner.os == 'Linux'
+        run: |
+          mkdir -p ~/apt-archives
+          n=$(find ~/apt-archives -maxdepth 1 -name '*.deb' | wc -l)
+          if [ "$n" -gt 0 ]; then sudo cp ~/apt-archives/*.deb /var/cache/apt/archives/; fi
+          echo "$n packages from earlier runs"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
@@ -228,7 +287,7 @@ jobs:
         run: |
           # each of the five packages, asked as npm install asks: the version must be listed
           accept='application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
-          for _ in $(seq 60); do
+          for _ in $(seq 120); do
             missing=
             for name in marqius-wkhtmltopdf marqius-wkhtmltopdf-linux-x64 marqius-wkhtmltopdf-linux-arm64 marqius-wkhtmltopdf-darwin-arm64 marqius-wkhtmltopdf-win32-x64; do
               curl -fsS -H "Accept: $accept" "https://registry.npmjs.org/$name" 2>/dev/null |
@@ -237,7 +296,7 @@ jobs:
             done
             [ -z "$missing" ] && exit 0
             echo "not yet listed:$missing"
-            sleep 20
+            sleep 10
           done
           echo "npm does not serve$missing $VERSION after 20 minutes" >&2
           exit 1
@@ -249,12 +308,33 @@ jobs:
           tmp=$RUNNER_TEMP
           if command -v cygpath >/dev/null; then tmp=$(cygpath -m "$tmp"); fi
           # after a first publish, npm's servers can answer "not found" for a platform's package for
-          # five minutes, and npm then leaves it out: once more, after those five minutes
-          tests/examples.sh "$tmp/live" || {
-            echo "Trying once more in five minutes, in case a server of npm's still had the older answer" >&2
-            sleep 300
-            tests/examples.sh "$tmp/live-again"
-          }
+          # up to five minutes, and npm then leaves it out: again every 15 seconds, for up to ten minutes
+          tests/examples.sh "$tmp/live" && exit 0
+          deadline=$((SECONDS + 600)) try=1
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            sleep 15
+            try=$((try + 1))
+            echo "Trying again ($try), in case a server of npm's still had the older answer" >&2
+            tests/examples.sh "$tmp/live-$try" && exit 0
+          done
+          exit 1
+      - name: Keep the packages this run downloaded, for the next run
+        id: apt-keep
+        if: always() && runner.os == 'Linux'
+        run: |
+          new=0
+          for f in /var/cache/apt/archives/*.deb; do
+            [ -e "$f" ] || continue
+            [ -e ~/apt-archives/"${f##*/}" ] && continue
+            cp "$f" ~/apt-archives/ && new=$((new + 1))
+          done
+          echo "$new packages new to the cache"
+          echo "new=$new" >>"$GITHUB_OUTPUT"
+      - if: always() && runner.os == 'Linux' && steps.apt-keep.outputs.new != '' && steps.apt-keep.outputs.new != '0'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-archives
+          key: apt-archives-${{ runner.arch }}-${{ github.run_id }}-${{ github.job }}-${{ strategy.job-index }}
 
   npm-sign-in:
     # by hand: npm's trusted publishing must accept this workflow's GitHub sign-in for every package.
